@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Giám sát từ xa - Bản đồ GPS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-database-compat.js"></script>
+
+  <script>
+    // Cấu hình Firebase (thay YOUR_API_KEY và các thông số tương ứng)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "quan-trac-efc15.firebaseapp.com",
+      databaseURL: "https://quan-trac-efc15-default-rtdb.firebaseio.com",
+      projectId: "quan-trac-efc15",
+      storageBucket: "quan-trac-efc15.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID",
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const map = L.map("map").setView([21.04, 105.75], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(map);
+
+    const markers = {};
+
+    // Lắng nghe thêm mới node
+    db.ref('/').on('child_added', (snapshot) => {
+      const nodeId = snapshot.key;
+      const data = snapshot.val();
+      addOrUpdateMarker(nodeId, data);
+    });
+
+    // Lắng nghe cập nhật node
+    db.ref('/').on('child_changed', (snapshot) => {
+      const nodeId = snapshot.key;
+      const data = snapshot.val();
+      addOrUpdateMarker(nodeId, data);
+    });
+
+    // Lắng nghe xóa node
+    db.ref('/').on('child_removed', (snapshot) => {
+      const nodeId = snapshot.key;
+      if (markers[nodeId]) {
+        map.removeLayer(markers[nodeId]);
+        delete markers[nodeId];
+      }
+    });
+
+    function addOrUpdateMarker(nodeId, data) {
+      if (!data) return;
+
+      const latitude = parseFloat(data.latitude);
+      const longitude = parseFloat(data.longitude);
+      const temperature = parseFloat(data.temperature);
+      const humidity = parseFloat(data.humidity);
+      const pm25 = parseFloat(data.pm2_5);
+      const co2 = parseFloat(data.co2);
+
+      if (!latitude || !longitude) return;
+
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
+        .then(response => response.json())
+        .then(geoData => {
+          const address = geoData.display_name || "Không xác định địa chỉ";
+          const popupContent = `
+        <b>📍 ${nodeId.toUpperCase()}</b><br>
+        <b>Địa chỉ:</b> ${address}<br>
+        🌡 Nhiệt độ: <b>${temperature}°C</b><br>
+        💧 Độ ẩm: <b>${humidity}%</b><br>
+        🫧 PM2.5: <b>${pm25} µg/m³</b><br>
+        🏭 CO₂: <b>${co2} ppm</b>
+      `;
+
+          if (markers[nodeId]) {
+            markers[nodeId].setLatLng([latitude, longitude]);
+            markers[nodeId].setPopupContent(popupContent);
+          } else {
+            const marker = L.marker([latitude, longitude]).addTo(map);
+            marker.bindPopup(popupContent);
+            markers[nodeId] = marker;
+          }
+        })
+        .catch(err => console.error("Lỗi reverse geocoding:", err));
+    }
+
+  </script>
+</body>
+
+</html>
