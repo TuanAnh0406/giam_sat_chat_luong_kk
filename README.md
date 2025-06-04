@@ -48,4 +48,4 @@ Dữ liệu được gửi về **Firebase Realtime Database**, sau đó hiển 
 
 ---
 
-> 👨‍💻 **Tác giả:** Nguyễn Tuấn Anh – Sinh viên thực hiện đề tài nghiên cứu ứng dụng IoT và Firebase trong giám sát môi trường đô thị.
+> 👨‍💻 **Tác giả:** Nguyễn Tuấn Anh 
